@@ -1,155 +1,46 @@
 import React from 'react';
-import * as firebase from 'firebase/app';
-import 'firebase/auth';
-import firebaseConfig from './config';
+import Home from './Home';
+import { BrowserRouter as Router, Switch, Route } from 'react-router-dom';
+import NotFound from './NotFound';
+import PrimarySearchAppBar from './Nav';
+import Card from './Card';
+import Shipment from './Shipment';
+import Next from './Next';
+import { createContext } from 'react';
 import { useState } from 'react';
+import PrivateRoute from './PrivateRoute';
 
-firebase.initializeApp(firebaseConfig);
+export const UserContext = createContext();
 
 function App () {
-	const provider = new firebase.auth.GoogleAuthProvider();
-	const fbProvider = new firebase.auth.FacebookAuthProvider();
-	const [ newUser, setNewUser ] = useState(false);
-	const [ user, setUser ] = useState({
-		isSignedIn  : false,
-		displayName : '',
-		email       : '',
-		password    : '',
-		photoURL    : '',
-		error       : '',
-		success     : false
-	});
-	const handleSignIn = () => {
-		firebase.auth().signInWithPopup(provider).then((result) => {
-			const { displayName, email, photoURL } = result.user;
-			setUser({
-				isSignedIn  : true,
-				displayName,
-				email,
-				photoURL
-			});
-		});
-	};
-
-	const handleSignOut = () => {
-		firebase.auth().signOut().then((res) => {
-			setUser(!user);
-		});
-	};
-
-	const handleBlur = (e) => {
-		let formValid = true;
-		if (e.target.name === 'email') {
-			formValid = /\S+@\S+\.\S+/.test(e.target.value);
-		}
-		if (e.target.name === 'password') {
-			const validPass = e.target.value.length > 6;
-			const hasNumber = /\d{1}/.test(e.target.value);
-			formValid = validPass && hasNumber;
-		}
-		if (formValid) {
-			const newUser = { ...user };
-			newUser[e.target.name] = e.target.value;
-			setUser(newUser);
-		}
-	};
-
-	const handleSubmit = (e) => {
-		e.preventDefault();
-		if (newUser && user.email && user.password) {
-			firebase
-				.auth()
-				.createUserWithEmailAndPassword(user.email, user.password)
-				.then((res) => {
-					console.log(res);
-					let newUserInfo = { ...user };
-					newUserInfo.error = '';
-					newUserInfo.success = true;
-					setUser(newUserInfo);
-					updateUserName(user.name);
-				})
-				.catch((error) => {
-					let newError = { ...user };
-					newError.error = error.message;
-					newError.success = false;
-					setUser(newError);
-				});
-		}
-		if (!newUser && user.email && user.password) {
-			firebase
-				.auth()
-				.signInWithEmailAndPassword(user.email, user.password)
-				.then((res) => {
-					let newUserInfo = { ...user };
-					newUserInfo.error = '';
-					newUserInfo.success = true;
-					setUser(newUserInfo);
-					console.log('sign in user info', res.user);
-				})
-				.catch((error) => {
-					let newError = { ...user };
-					newError.error = error.message;
-					newError.success = false;
-					setUser(newError);
-				});
-		}
-	};
-
-	const updateUserName = (name) => {
-		const user = firebase.auth().currentUser;
-		user
-			.updateProfile({
-				displayName : name
-			})
-			.then(() => {
-				console.log('updated');
-			})
-			.catch((err) => {
-				console.log(err);
-			});
-	};
-
-	const handleFbClick = () => {
-		firebase.auth().signInWithPopup(fbProvider).then((res) => {
-			console.log(res);
-		});
-	};
-
+	const [ loggedIn, setLoggedIn ] = useState({});
 	return (
-		<div style={{ width: '500px', margin: 'auto' }}>
-			{user.isSignedIn && (
-				<div>
-					<p>Welcome, {user.displayName}</p>
-					<img style={{ height: '60px', width: '60px', borderRadius: '50px' }} src={user.photoURL} alt="" />
-				</div>
-			)}
-			{user.isSignedIn ? (
-				<button onClick={handleSignOut}>Log Out</button>
-			) : (
-				<button onClick={handleSignIn}>Sign In</button>
-			)}
-			<button onClick={handleFbClick}>Sign in with Facebook</button>
-			<h1>Our own Authentication System</h1>
-			<input onChange={() => setNewUser(!newUser)} type="checkbox" name="user" id="" />
-			<label htmlFor="user">New User Sign Up</label> <br />
-			<form onSubmit={handleSubmit}>
-				{newUser && <input onBlur={handleBlur} type="text" name="name" />}
-				<br />
-				<label htmlFor="Email">Email</label>
-				<br />
-				<input onBlur={handleBlur} name="email" type="text" placeholder="email address" required />
-				<br />
-				<br />
-				<label htmlFor="password">Password</label>
-				<br />
-				<input name="password" onBlur={handleBlur} type="password" placeholder="password" required />
-				<br />
-				<br />
-				<input type="submit" value={newUser ? 'Sign Up' : 'Sign In'} />
-			</form>
-			<p style={{ color: 'red' }}>{user.error}</p>
-			{user.success && <p style={{ color: 'green' }}>User {newUser ? 'Created' : 'Logged In'} Successfully</p>}
-		</div>
+		<UserContext.Provider value={[ loggedIn, setLoggedIn ]}>
+			<Router>
+				<Switch>
+					<Route exact path="/">
+						<PrimarySearchAppBar />
+						<h3>{loggedIn.email}</h3>
+						<Card />
+					</Route>
+					<Route path="/login">
+						<PrimarySearchAppBar />
+						<Home />
+					</Route>
+					<Route path="/shipment">
+						<PrimarySearchAppBar />
+						<Shipment />
+					</Route>
+					<PrivateRoute path="/next">
+						<PrimarySearchAppBar />
+						<Next />
+					</PrivateRoute>
+					<Route path="*">
+						<NotFound />
+					</Route>
+				</Switch>
+			</Router>
+		</UserContext.Provider>
 	);
 }
 
